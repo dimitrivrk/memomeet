@@ -36,6 +36,9 @@ export const authOptions: NextAuthOptions = {
       }
       return session;
     },
+    async redirect({ url, baseUrl }) {
+      return baseUrl; // 👈 redirection vers la home après connexion
+    },
   },
   pages: {
     signIn: '/login',
