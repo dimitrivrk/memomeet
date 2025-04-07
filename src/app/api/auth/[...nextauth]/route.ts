@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import NextAuth, { NextAuthOptions } from 'next-auth';
+import NextAuth from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 import { PrismaAdapter } from '@auth/prisma-adapter';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, User as PrismaUser } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-export const authOptions: NextAuthOptions = {
+const handler = NextAuth({
   adapter: PrismaAdapter(prisma),
   providers: [
     GoogleProvider({
@@ -15,16 +15,16 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   session: {
-    strategy: 'jwt', // 'database' ne permet pas les champs custom dans session.user
+    strategy: 'jwt',
   },
   callbacks: {
     async jwt({ token, user }) {
-      // Premier login : user est défini
       if (user) {
-        token.id = user.id;
-        token.credits = (user as any).credits;
-        token.subscription = (user as any).subscription;
-        token.isUnlimited = (user as any).isUnlimited;
+        const u = user as PrismaUser;
+        token.id = u.id;
+        token.credits = u.credits;
+        token.subscription = u.subscription;
+        token.isUnlimited = u.isUnlimited;
       }
       return token;
     },
@@ -42,8 +42,6 @@ export const authOptions: NextAuthOptions = {
     signIn: '/login',
   },
   secret: process.env.NEXTAUTH_SECRET,
-};
-
-const handler = NextAuth(authOptions);
+});
 
 export { handler as GET, handler as POST };
