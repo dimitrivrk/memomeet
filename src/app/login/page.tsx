@@ -1,40 +1,34 @@
 'use client';
 
+import { useSession, signIn } from 'next-auth/react';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
-export default function BuySuccessPage() {
+export default function LoginPage() {
+  const { data: session, status } = useSession();
   const router = useRouter();
 
   useEffect(() => {
-    const timeout = setTimeout(() => {
+    if (status === 'authenticated') {
+      // ✅ Redirige vers la page d'accueil
       router.push('/');
-    }, 4000);
+    }
+  }, [status, router]);
 
-    return () => clearTimeout(timeout);
-  }, [router]);
+  if (status === 'loading') {
+    return <p className="text-center mt-8">Chargement...</p>;
+  }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-green-50 dark:bg-neutral-900 px-4">
-      <div className="bg-white dark:bg-neutral-800 p-6 rounded-2xl shadow-md dark:shadow max-w-sm w-full text-center">
-        <h1 className="text-2xl font-bold text-green-700 dark:text-green-400 mb-4">
-          Merci ! 🎉
-        </h1>
-        <p className="text-gray-700 dark:text-gray-200">
-          Ton paiement a bien été validé.
-        </p>
-        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-          Redirection vers l’accueil dans quelques secondes...
-        </p>
-        <p className="mt-4 text-xs text-gray-400 dark:text-gray-500">
-          Si rien ne se passe,{' '}
-          <a href="/" className="text-blue-500 dark:text-blue-400 underline">
-            clique ici
-          </a>.
-        </p>
-        <div className="mt-4 animate-pulse text-green-500 dark:text-green-400 text-xl">
-          ...
-        </div>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 px-4">
+      <div className="bg-white p-6 rounded-2xl shadow-md w-full max-w-sm text-center">
+        <h1 className="text-2xl font-bold mb-6">Bienvenue sur MemoMeet 👋</h1>
+        <button
+          onClick={() => signIn('google')}
+          className="w-full py-2 px-4 rounded bg-blue-600 text-white font-semibold hover:bg-blue-700 transition"
+        >
+          Se connecter avec Google
+        </button>
       </div>
     </div>
   );
