@@ -1,11 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
+
+// Typage custom pour valeurs JSON
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -76,7 +78,7 @@ export async function PATCH(req: NextRequest) {
     where: { id },
     data: {
       content: content ?? existing.content,
-      tasks: Array.isArray(tasks) ? (tasks as any[]) : existing.tasks,
+      tasks: Array.isArray(tasks) ? (tasks as JsonValue) : existing.tasks,
     },
   });
 
