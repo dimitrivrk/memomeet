@@ -40,17 +40,7 @@ export const authOptions: NextAuthOptions = {
       return baseUrl;
     },
   },
-  cookies: {
-    sessionToken: {
-      name: `__Secure-next-auth.session-token`,
-      options: {
-        httpOnly: true,
-        sameSite: 'none',
-        path: '/',
-        secure: true,
-      },
-    },
-  },
+  
   pages: {
     signIn: '/login',
   },

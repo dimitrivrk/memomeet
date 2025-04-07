@@ -16,9 +16,9 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const filePath = path.join(tmpdir(), `${fileId}-${filename}`);
+    const filePath = path.join(tmpdir(), filename);
     const buffer = await readFile(filePath);
-    const blob = new Blob([buffer]);
+    const blob = new Blob([buffer], { type: 'audio/mpeg' });
 
     const transcription = await openai.audio.transcriptions.create({
       file: new File([blob], filename, { type: 'audio/mpeg' }),
@@ -36,18 +36,18 @@ export async function POST(req: NextRequest) {
         {
           role: 'system',
           content:
-            "Tu es un assistant de réunion. Tu dois d'abord produire un résumé clair et entier (sous le titre 'Résumé :'), puis une liste de tâches (sous le titre 'Tâches :'), avec des puces '-'. Ne mélange jamais les deux blocs.",
+            "Tu es un assistant de réunion. Tu dois produire un résumé clair (sous 'Résumé :') puis une liste de tâches (sous 'Tâches :') avec des puces '-'.",
         },
         {
           role: 'user',
-          content: `Voici une transcription de réunion :\n\n${transcriptText}\n\nMerci de me fournir uniquement :\n1. Un bloc Résumé\n2. Un bloc Tâches avec des puces '-'`,
+          content: `Voici la transcription :\n\n${transcriptText}`,
         },
       ],
     });
 
     const gptResponse = chat.choices[0]?.message?.content || '';
     const [rawSummary, rawTasks = ''] = gptResponse.split(/Tâches\s*[:\-]?\s*\n?/i);
-    const summary = rawSummary?.trim() || 'Résumé indisponible';
+    const summary = rawSummary.trim();
     const tasks = rawTasks
       .split(/\n|[-•]\s+/)
       .map((t) => t.trim())
@@ -67,9 +67,9 @@ export async function POST(req: NextRequest) {
       data: { credits: { decrement: 1 } },
     });
 
-    return NextResponse.json({ status: 'ok', summary, tasks });
+    return NextResponse.json({ summary, tasks });
   } catch (err) {
-    console.error('Erreur traitement:', err);
-    return NextResponse.json({ error: 'Erreur traitement.' }, { status: 500 });
+    console.error('Erreur process :', err);
+    return NextResponse.json({ error: 'Erreur process.' }, { status: 500 });
   }
 }
