@@ -32,11 +32,13 @@ export default function AccountPage() {
     if (status === 'authenticated') {
       type CustomUser = typeof session.user & {
         subscription?: 'none' | 'standard' | 'pro';
+        credits?: number;
       };
+      
       
       setSubscription(((session?.user as CustomUser)?.subscription) ?? 'none');
       
-      setCredits(session?.user?.credits ?? 0);
+      setCredits(((session?.user as CustomUser)?.credits) ?? 0);
 
       const fetchInvoices = async () => {
         try {
