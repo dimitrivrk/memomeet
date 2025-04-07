@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authOptions } from '@/lib/auth';
-import { getServerSession } from 'next-auth/next';
+import { getToken } from 'next-auth/jwt';
 import { OpenAI } from 'openai';
 import { PrismaClient } from '@prisma/client';
 import { writeFile } from 'fs/promises';
@@ -16,15 +15,14 @@ const prisma = new PrismaClient();
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 export async function POST(req: NextRequest) {
-  // Récupère proprement la session utilisateur
-  const session = await getServerSession({ req, ...authOptions });
-
-  if (!session?.user?.id) {
+  const token = await getToken({ req });
+  
+  if (!token?.sub) {
     return NextResponse.json({ error: 'Non autorisé.' }, { status: 401 });
   }
 
   const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
+    where: { id: token.sub },
   });
 
   if (!user || user.credits <= 0) {
