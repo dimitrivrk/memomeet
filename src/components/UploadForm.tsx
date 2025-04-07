@@ -2,20 +2,25 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useCredits } from '@/context/CreditContext';
+
+type ResultType = {
+  summary: string;
+  tasks: string[];
+  transcript?: string;
+  credits?: number;
+};
 
 export default function UploadForm() {
   const [file, setFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<ResultType | null>(null);
   const [showTranscript, setShowTranscript] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const { data: session } = useSession();
-  const router = useRouter();
-  const { setCredits } = useCredits(); // 👈 pour mise à jour globale
+  const { setCredits } = useCredits(); // mise à jour globale des crédits
 
   const handleUpload = async () => {
     if (!file) return;
@@ -33,7 +38,7 @@ export default function UploadForm() {
         body: formData,
       });
 
-      const data = await res.json();
+      const data: ResultType & { error?: string } = await res.json();
 
       if (!res.ok) {
         if (res.status === 403 && data.error === 'Plus de crédits.') {
@@ -50,9 +55,9 @@ export default function UploadForm() {
       setShowTranscript(false);
 
       if (session?.user?.subscription !== 'pro' && typeof data.credits === 'number') {
-        setCredits(data.credits); // ✅ met à jour le contexte
+        setCredits(data.credits);
       }
-    } catch (err) {
+    } catch {
       setError('Erreur de connexion au serveur.');
     } finally {
       setIsLoading(false);
@@ -100,13 +105,12 @@ export default function UploadForm() {
 
           <h3 className="font-semibold mt-4">Tasks:</h3>
           <ul className="list-disc list-inside text-sm text-gray-700 dark:text-gray-300">
-            {result?.tasks?.length > 0 &&
-              result.tasks.map((task: string, i: number) => (
-                <li key={i}>{task}</li>
-              ))}
+            {result.tasks?.map((task, i) => (
+              <li key={i}>{task}</li>
+            ))}
           </ul>
 
-          {result?.transcript && (
+          {result.transcript && (
             <div className="mt-6">
               <button
                 onClick={() => setShowTranscript(!showTranscript)}

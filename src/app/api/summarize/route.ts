@@ -19,7 +19,7 @@ const openai = new OpenAI({
 const prisma = new PrismaClient();
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
-export async function POST(req: NextRequest) {
+export async function POST(_req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Non autorisé.' }, { status: 401 });
@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
       transcript: transcriptText,
       credits: updatedUser.credits,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Erreur OpenAI ou serveur:', error);
     return NextResponse.json(
       { error: 'Erreur serveur ou appel API.' },
@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ summaries: [] });

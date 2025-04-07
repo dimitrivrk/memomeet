@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 export default function BuySuccessPage() {
   const router = useRouter();
@@ -28,9 +29,9 @@ export default function BuySuccessPage() {
         </p>
         <p className="mt-4 text-xs text-gray-400 dark:text-gray-500">
           Si rien ne se passe,{' '}
-          <a href="/" className="text-blue-500 dark:text-blue-400 underline">
+          <Link href="/" className="text-blue-500 dark:text-blue-400 underline">
             clique ici
-          </a>.
+          </Link>.
         </p>
         <div className="mt-4 animate-pulse text-green-500 dark:text-green-400 text-xl">
           ...

@@ -9,11 +9,11 @@ type Summary = {
   content: string;
   source: string;
   createdAt: string;
-  tasks: string[]; // ✅ Nouveau champ pour les tâches
+  tasks: string[];
 };
 
 export default function HistoryPage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession(); // on ne garde que status, session était unused
   const router = useRouter();
 
   const [summaries, setSummaries] = useState<Summary[]>([]);
@@ -25,10 +25,15 @@ export default function HistoryPage() {
     }
 
     const fetchSummaries = async () => {
-      const res = await fetch('/api/summarize');
-      const data = await res.json();
-      setSummaries(data.summaries || []);
-      setLoading(false);
+      try {
+        const res = await fetch('/api/summarize');
+        const data = await res.json();
+        setSummaries(data.summaries || []);
+      } catch {
+        console.error("Erreur lors du chargement des résumés.");
+      } finally {
+        setLoading(false);
+      }
     };
 
     if (status === 'authenticated') {
@@ -39,14 +44,16 @@ export default function HistoryPage() {
   const handleDelete = async (id: string) => {
     if (!confirm("Supprimer ce résumé ?")) return;
 
-    const res = await fetch(`/api/summarize/${id}`, {
-      method: 'DELETE',
-    });
+    try {
+      const res = await fetch(`/api/summarize/${id}`, { method: 'DELETE' });
 
-    if (res.ok) {
-      setSummaries(prev => prev.filter(s => s.id !== id));
-    } else {
-      alert("Erreur lors de la suppression.");
+      if (res.ok) {
+        setSummaries((prev) => prev.filter((s) => s.id !== id));
+      } else {
+        alert("Erreur lors de la suppression.");
+      }
+    } catch {
+      alert("Erreur réseau.");
     }
   };
 

@@ -3,12 +3,10 @@
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useEffect } from 'react';
-import { useSubscription } from '@/context/SubscriptionContext';
 
 export default function BuyCreditsPage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
-  const { setSubscription } = useSubscription();
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -40,8 +38,6 @@ export default function BuyCreditsPage() {
 
     const data = await res.json();
     if (data?.url) {
-      // ⚠️ Optionnel : on peut stocker temporairement une intention de type de souscription
-      // localStorage.setItem('subscriptionIntent', priceId.includes('pro') ? 'pro' : 'standard');
       window.location.href = data.url;
     } else {
       alert('Erreur lors de la redirection vers Stripe.');
@@ -61,7 +57,6 @@ export default function BuyCreditsPage() {
         </p>
 
         <div className="space-y-4">
-          {/* Packs classiques */}
           <button
             className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
             onClick={() => handleBuy(10)}
@@ -78,7 +73,6 @@ export default function BuyCreditsPage() {
 
           <hr className="my-6 border-gray-300 dark:border-gray-600" />
 
-          {/* Abonnements */}
           <button
             className="w-full bg-purple-600 text-white py-2 rounded hover:bg-purple-700"
             onClick={() => handleSubscribe('price_1R5ficK9mEToSu4YF0OdylSe')}
