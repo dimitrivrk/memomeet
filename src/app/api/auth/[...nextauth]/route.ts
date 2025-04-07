@@ -1,6 +1,6 @@
+import NextAuth from 'next-auth/next'; // 🔥 C'est LA solution de contournement
 import { authOptions } from '@/lib/authOptions';
-import { NextAuthHandler } from 'next-auth';
 
-const handler = NextAuthHandler(authOptions);
+const handler = NextAuth(authOptions);
 
 export { handler as GET, handler as POST };
