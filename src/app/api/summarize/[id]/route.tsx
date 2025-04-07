@@ -78,7 +78,7 @@ export async function PATCH(req: NextRequest) {
     where: { id },
     data: {
       content: content ?? existing.content,
-      tasks: Array.isArray(tasks) ? (tasks as JsonValue) : existing.tasks,
+      tasks: Array.isArray(tasks) ? (tasks as any) : existing.tasks,
     },
   });
 
