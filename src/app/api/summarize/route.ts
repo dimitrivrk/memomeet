@@ -1,40 +1,41 @@
-export const config = {
-  runtime: 'nodejs',
-};
-
 import { NextRequest, NextResponse } from 'next/server';
+import { authOptions } from '@/lib/auth';
+import { getServerSession } from 'next-auth/next';
 import { OpenAI } from 'openai';
+import { PrismaClient } from '@prisma/client';
 import { writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import path from 'path';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { PrismaClient } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.OPENAI_API_KEY!,
 });
 
 const prisma = new PrismaClient();
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
+  // Récupère proprement la session utilisateur
+  const session = await getServerSession({ req, ...authOptions });
+
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Non autorisé.' }, { status: 401 });
   }
 
-  const user = await prisma.user.findUnique({ where: { id: session.user.id } });
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+  });
+
   if (!user || user.credits <= 0) {
     return NextResponse.json({ error: 'Plus de crédits.' }, { status: 403 });
   }
 
   const formData = await req.formData();
-  const file = formData.get('file') as File;
+  const file = formData.get('file');
 
-  if (!file) {
-    return NextResponse.json({ error: 'Fichier manquant.' }, { status: 400 });
+  if (!(file instanceof File)) {
+    return NextResponse.json({ error: 'Fichier manquant ou invalide.' }, { status: 400 });
   }
 
   if (file.size > MAX_FILE_SIZE) {
@@ -42,19 +43,19 @@ export async function POST(req: NextRequest) {
   }
 
   const mimeType = file.type;
-  if (!['audio/mpeg', 'audio/wav', 'audio/mp3', 'audio/x-wav'].includes(mimeType)) {
+  const allowedTypes = ['audio/mpeg', 'audio/wav', 'audio/mp3', 'audio/x-wav'];
+  if (!allowedTypes.includes(mimeType)) {
     return NextResponse.json({ error: 'Format de fichier non supporté.' }, { status: 415 });
   }
 
   try {
-    // 🔐 Sanitize filename
     const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '');
     const tempPath = path.join(tmpdir(), `${uuidv4()}-${safeName}`);
     const buffer = Buffer.from(await file.arrayBuffer());
     await writeFile(tempPath, buffer);
 
-    // 🔊 Whisper
     const blob = new Blob([buffer], { type: mimeType });
+
     const transcription = await openai.audio.transcriptions.create({
       file: new File([blob], safeName, { type: mimeType }),
       model: 'whisper-1',
@@ -63,7 +64,6 @@ export async function POST(req: NextRequest) {
 
     const transcriptText = transcription.text || '';
 
-    // 🤖 GPT résumé + tâches
     const chat = await openai.chat.completions.create({
       model: 'gpt-3.5-turbo',
       temperature: 0.5,
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
         {
           role: 'system',
           content:
-            "Tu es un assistant de réunion. Tu dois d'abord produire un résumé clair et entier et le plus long possible (sous le titre 'Résumé :'), puis une liste de tâches (sous le titre 'Tâches :'), en utilisant des puces '-'. Ne mélange jamais les deux blocs.",
+            "Tu es un assistant de réunion. Tu dois d'abord produire un résumé clair et entier (sous le titre 'Résumé :'), puis une liste de tâches (sous le titre 'Tâches :'), avec des puces '-'. Ne mélange jamais les deux blocs.",
         },
         {
           role: 'user',
@@ -82,7 +82,6 @@ export async function POST(req: NextRequest) {
     });
 
     const gptResponse = chat.choices[0]?.message?.content || '';
-
     const taskRegex = /Tâches\s*[:\-]?\s*\n?/i;
     const hasTasks = taskRegex.test(gptResponse);
     const [rawSummary, rawTasks] = hasTasks
@@ -90,7 +89,6 @@ export async function POST(req: NextRequest) {
       : [gptResponse, ''];
 
     const summary = rawSummary?.trim() || 'Résumé indisponible';
-
     const tasks = rawTasks
       ? rawTasks
           .split(/\n|[-•]\s+/)
@@ -98,13 +96,11 @@ export async function POST(req: NextRequest) {
           .filter((t) => t.length > 5)
       : [];
 
-    // 🔄 Crédit
     const updatedUser = await prisma.user.update({
       where: { id: user.id },
       data: { credits: { decrement: 1 } },
     });
 
-    // 💾 Enregistrement
     await prisma.summary.create({
       data: {
         userId: user.id,
@@ -120,32 +116,11 @@ export async function POST(req: NextRequest) {
       transcript: transcriptText,
       credits: updatedUser.credits,
     });
-  } catch (error: unknown) {
+  } catch (error) {
     console.error('Erreur OpenAI ou serveur:', error);
     return NextResponse.json(
       { error: 'Erreur serveur ou appel API.' },
       { status: 500 }
     );
   }
-}
-
-export async function GET() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ summaries: [] });
-  }
-
-  const summaries = await prisma.summary.findMany({
-    where: { userId: session.user.id },
-    orderBy: { createdAt: 'desc' },
-    select: {
-      id: true,
-      content: true,
-      source: true,
-      createdAt: true,
-      tasks: true,
-    },
-  });
-
-  return NextResponse.json({ summaries });
 }
