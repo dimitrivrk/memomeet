@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { authOptions } from '@/lib/authOptions';
 
 if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error('Missing STRIPE_SECRET_KEY');
@@ -19,7 +19,8 @@ const PRICE_IDS: Record<number, string> = {
 const domain = process.env.NEXT_PUBLIC_DOMAIN || 'http://localhost:3000';
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession({ req, ...authOptions }); // ✅ Important
+
   if (!session || !session.user || typeof session.user.id !== 'string') {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
   }

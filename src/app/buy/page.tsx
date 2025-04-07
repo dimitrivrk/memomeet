@@ -18,6 +18,7 @@ export default function BuyCreditsPage() {
     const res = await fetch('/api/stripe/checkout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include', // ✅ Envoie le cookie de session
       body: JSON.stringify({ quantity }),
     });
 
@@ -33,6 +34,7 @@ export default function BuyCreditsPage() {
     const res = await fetch('/api/stripe/subscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include', // ✅ Idem ici
       body: JSON.stringify({ priceId }),
     });
 
