@@ -5,12 +5,20 @@ import type { NextAuthOptions } from "next-auth";
 
 const prisma = new PrismaClient();
 
+if (
+  !process.env.GOOGLE_CLIENT_ID ||
+  !process.env.GOOGLE_CLIENT_SECRET ||
+  !process.env.NEXTAUTH_SECRET
+) {
+  throw new Error("🔐 Variables d'environnement manquantes pour NextAuth");
+}
+
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     }),
   ],
   session: {
@@ -21,6 +29,8 @@ export const authOptions: NextAuthOptions = {
       if (session?.user) {
         session.user.id = user.id;
         session.user.credits = user.credits;
+        session.user.subscription = user.subscription;
+        session.user.isUnlimited = user.isUnlimited;
       }
       return session;
     },

@@ -10,17 +10,18 @@ import path from 'path';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { PrismaClient } from '@prisma/client';
+import { v4 as uuidv4 } from 'uuid';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
 const prisma = new PrismaClient();
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
-// ✅ POST : Générer un résumé depuis un fichier audio
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session || !session.user) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: 'Non autorisé.' }, { status: 401 });
   }
 
@@ -33,28 +34,40 @@ export async function POST(req: NextRequest) {
   const file = formData.get('file') as File;
 
   if (!file) {
-    return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
+    return NextResponse.json({ error: 'Fichier manquant.' }, { status: 400 });
+  }
+
+  if (file.size > MAX_FILE_SIZE) {
+    return NextResponse.json({ error: 'Fichier trop volumineux (max 10MB)' }, { status: 413 });
+  }
+
+  const mimeType = file.type;
+  if (!['audio/mpeg', 'audio/wav', 'audio/mp3', 'audio/x-wav'].includes(mimeType)) {
+    return NextResponse.json({ error: 'Format de fichier non supporté.' }, { status: 415 });
   }
 
   try {
-    // 📁 Sauvegarde temporaire
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    const tempPath = path.join(tmpdir(), file.name);
+    // 🔐 Sanitize filename
+    const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '');
+    const tempPath = path.join(tmpdir(), `${uuidv4()}-${safeName}`);
+    const buffer = Buffer.from(await file.arrayBuffer());
     await writeFile(tempPath, buffer);
 
-    // 🔊 Transcription Whisper
-    const blob = new Blob([buffer], { type: file.type });
+    // 🔊 Whisper
+    const blob = new Blob([buffer], { type: mimeType });
     const transcription = await openai.audio.transcriptions.create({
-      file: new File([blob], file.name, { type: file.type }),
+      file: new File([blob], safeName, { type: mimeType }),
       model: 'whisper-1',
+      language: 'fr',
     });
 
-    const transcriptText = transcription.text;
+    const transcriptText = transcription.text || '';
 
-    // 🤖 Résumé + tâches avec GPT
+    // 🤖 GPT résumé + tâches
     const chat = await openai.chat.completions.create({
       model: 'gpt-3.5-turbo',
+      temperature: 0.5,
+      max_tokens: 1000,
       messages: [
         {
           role: 'system',
@@ -68,11 +81,10 @@ export async function POST(req: NextRequest) {
       ],
     });
 
-    const gptResponse = chat.choices[0].message.content || '';
+    const gptResponse = chat.choices[0]?.message?.content || '';
 
     const taskRegex = /Tâches\s*[:\-]?\s*\n?/i;
     const hasTasks = taskRegex.test(gptResponse);
-
     const [rawSummary, rawTasks] = hasTasks
       ? gptResponse.split(taskRegex)
       : [gptResponse, ''];
@@ -86,19 +98,19 @@ export async function POST(req: NextRequest) {
           .filter((t) => t.length > 5)
       : [];
 
-    // 💳 Décrémentation d’1 crédit
+    // 🔄 Crédit
     const updatedUser = await prisma.user.update({
       where: { id: user.id },
       data: { credits: { decrement: 1 } },
     });
 
-    // 💾 Sauvegarde en base
+    // 💾 Enregistrement
     await prisma.summary.create({
       data: {
         userId: user.id,
         content: summary,
-        source: file.name,
-        tasks: tasks, // ✅ Ajout des tâches
+        source: safeName,
+        tasks,
       },
     });
 
@@ -109,18 +121,17 @@ export async function POST(req: NextRequest) {
       credits: updatedUser.credits,
     });
   } catch (error: any) {
-    console.error('Erreur OpenAI:', error);
+    console.error('Erreur OpenAI ou serveur:', error);
     return NextResponse.json(
-      { error: 'Erreur lors de la transcription ou du résumé.' },
+      { error: 'Erreur serveur ou appel API.' },
       { status: 500 }
     );
   }
 }
 
-// ✅ GET : Récupérer l'historique des résumés
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session?.user) {
+  if (!session?.user?.id) {
     return NextResponse.json({ summaries: [] });
   }
 
@@ -132,7 +143,7 @@ export async function GET(req: NextRequest) {
       content: true,
       source: true,
       createdAt: true,
-      tasks: true, // ✅ Ajout des tâches dans la réponse
+      tasks: true,
     },
   });
 
