@@ -1,6 +1,10 @@
-import { authOptions } from '@/lib/auth';
-import NextAuth from 'next-auth/app'; // ✅ nouvelle syntaxe App Router
+import NextAuth from 'next-auth';
 
-const handler = NextAuth(authOptions);
+import { authOptions } from '@/lib/auth';
+
+const handler = async (req: Request) => {
+  const nextAuth = (await import('next-auth')).default;
+  return nextAuth(req, authOptions);
+};
 
 export { handler as GET, handler as POST };
