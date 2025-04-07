@@ -26,11 +26,12 @@ export const authOptions: NextAuthOptions = {
   },
   callbacks: {
     async session({ session, user }) {
-      if (session?.user) {
+      if (session.user) {
+        // 👇 Casting pour accéder aux propriétés custom
         session.user.id = user.id;
-        session.user.credits = user.credits;
-        session.user.subscription = user.subscription;
-        session.user.isUnlimited = user.isUnlimited;
+        (session.user as any).credits = user.credits;
+        (session.user as any).subscription = user.subscription;
+        (session.user as any).isUnlimited = user.isUnlimited;
       }
       return session;
     },
