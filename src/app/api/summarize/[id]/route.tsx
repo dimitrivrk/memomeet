@@ -6,8 +6,6 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-// Typage custom pour valeurs JSON
-type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
