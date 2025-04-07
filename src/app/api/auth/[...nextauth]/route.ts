@@ -1,7 +1,7 @@
-import NextAuth from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import NextAuth from 'next-auth';
 
-// App Router uses NextAuth as a function
+// ✅ App Router compatible
 const handler = NextAuth(authOptions);
 
 export { handler as GET, handler as POST };
