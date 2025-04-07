@@ -5,16 +5,22 @@ import { useEffect, useState } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { Menu, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useCredits } from '@/context/CreditContext'; // ⬅️ contexte global
+import { useCredits } from '@/context/CreditContext';
 
-export default function Sidebar() {
+type SidebarProps = {
+  credits?: number;
+};
+
+export default function Sidebar({ credits: propCredits }: SidebarProps) {
   const [open, setOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
 
   const router = useRouter();
   const pathname = usePathname();
   const { data: session, status } = useSession();
-  const { credits } = useCredits(); // 👈 récupère les crédits globaux
+  const { credits: contextCredits } = useCredits();
+
+  const credits = propCredits ?? contextCredits; // 👈 Priorité aux props
 
   const navigate = (path: string) => {
     setOpen(false);
@@ -96,38 +102,22 @@ export default function Sidebar() {
               )}
 
               <nav className="flex flex-col p-4 gap-3 text-sm flex-1">
-                <button
-                  onClick={() => navigate('/')}
-                  className={`text-left p-2 rounded cursor-pointer hover:bg-gray-100 dark:hover:bg-zinc-800 ${
-                    isActive('/') ? 'bg-gray-200 dark:bg-zinc-700 font-semibold' : ''
-                  }`}
-                >
-                  Accueil
-                </button>
-                <button
-                  onClick={() => navigate('/history')}
-                  className={`text-left p-2 rounded cursor-pointer hover:bg-gray-100 dark:hover:bg-zinc-800 ${
-                    isActive('/history') ? 'bg-gray-200 dark:bg-zinc-700 font-semibold' : ''
-                  }`}
-                >
-                  Historique
-                </button>
-                <button
-                  onClick={() => navigate('/account')}
-                  className={`text-left p-2 rounded cursor-pointer hover:bg-gray-100 dark:hover:bg-zinc-800 ${
-                    isActive('/account') ? 'bg-gray-200 dark:bg-zinc-700 font-semibold' : ''
-                  }`}
-                >
-                  Mon compte
-                </button>
-                <button
-                  onClick={() => navigate('/buy')}
-                  className={`text-left p-2 rounded cursor-pointer hover:bg-gray-100 dark:hover:bg-zinc-800 ${
-                    isActive('/buy') ? 'bg-gray-200 dark:bg-zinc-700 font-semibold' : ''
-                  }`}
-                >
-                  Crédits / Abonnement
-                </button>
+                {[
+                  { path: '/', label: 'Accueil' },
+                  { path: '/history', label: 'Historique' },
+                  { path: '/account', label: 'Mon compte' },
+                  { path: '/buy', label: 'Crédits / Abonnement' },
+                ].map(({ path, label }) => (
+                  <button
+                    key={path}
+                    onClick={() => navigate(path)}
+                    className={`text-left p-2 rounded cursor-pointer hover:bg-gray-100 dark:hover:bg-zinc-800 ${
+                      isActive(path) ? 'bg-gray-200 dark:bg-zinc-700 font-semibold' : ''
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
               </nav>
 
               <div className="p-4 border-t border-gray-200 dark:border-zinc-700 space-y-4">
