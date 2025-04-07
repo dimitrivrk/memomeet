@@ -4,17 +4,27 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+function extractIdFromUrl(req: NextRequest): string | null {
+  const urlParts = req.nextUrl.pathname.split('/');
+  return urlParts[urlParts.length - 1] || null;
+}
+
+export async function GET(req: NextRequest) {
   const token = await getToken({ req });
 
   if (!token?.sub) {
     return NextResponse.json({ error: 'Non autorisé.' }, { status: 401 });
   }
 
+  const id = extractIdFromUrl(req);
+  if (!id) {
+    return NextResponse.json({ error: 'ID manquant dans l’URL.' }, { status: 400 });
+  }
+
   try {
     const summary = await prisma.summary.findUnique({
       where: {
-        id: params.id,
+        id,
         userId: token.sub,
       },
     });
@@ -30,17 +40,22 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest) {
   const token = await getToken({ req });
 
   if (!token?.sub) {
     return NextResponse.json({ error: 'Non autorisé.' }, { status: 401 });
   }
 
+  const id = extractIdFromUrl(req);
+  if (!id) {
+    return NextResponse.json({ error: 'ID manquant dans l’URL.' }, { status: 400 });
+  }
+
   try {
     await prisma.summary.delete({
       where: {
-        id: params.id,
+        id,
         userId: token.sub,
       },
     });
