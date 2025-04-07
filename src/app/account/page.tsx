@@ -30,7 +30,12 @@ export default function AccountPage() {
     }
 
     if (status === 'authenticated') {
-      setSubscription((session?.user as any)?.subscription ?? 'none');
+      type CustomUser = typeof session.user & {
+        subscription?: 'none' | 'standard' | 'pro';
+      };
+      
+      setSubscription(((session?.user as CustomUser)?.subscription) ?? 'none');
+      
       setCredits(session?.user?.credits ?? 0);
 
       const fetchInvoices = async () => {
