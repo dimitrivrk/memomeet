@@ -1,36 +1,38 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🧠 Memomeet
 
-## Getting Started
+**Memomeet** is your personal AI meeting assistant — it listens, transcribes, summarizes, and generates actionable to-do lists from your meetings.  
+Powered by OpenAI’s Whisper & GPT APIs, Memomeet turns your unstructured audio chaos into clean, organized follow-ups.
 
-First, run the development server:
+Built with ❤️ by [Dimitri VRK](https://github.com/dimitrivrk) — dev, builder, slightly caffeinated human.
+
+---
+
+## 🚀 Features
+
+- 🎙️ Upload any meeting audio (`.mp3`, `.wav`, etc.)
+- ✍️ Whisper-powered **speech-to-text transcription**
+- 🧠 GPT-generated **summaries** and **action items**
+- 📋 Interactive **to-do list** (add/edit/delete tasks)
+- 📜 Full **meeting history**, editable by the user
+- 🪙 Built-in **credit system**: 3 free credits per user, then Stripe-powered upgrades
+- 🔐 Google Login with **NextAuth**
+- 📊 Dashboard for all your past meetings and tasks
+
+---
+
+## 🛠 Tech Stack
+
+| Frontend        | Backend           | AI Services         | Other               |
+|-----------------|-------------------|----------------------|----------------------|
+| Next.js (App Router) | API Routes via Next.js | OpenAI Whisper API   | TailwindCSS          |
+| TypeScript       | Prisma + PostgreSQL | OpenAI GPT-4 API     | Stripe (payments)    |
+| NextAuth (Google) | Zod (validation) |                     | Vercel (deployment)  |
+
+---
+
+## ⚙️ Installation
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+git clone https://github.com/dimitrivrk/memomeet.git
+cd memomeet
+npm install
