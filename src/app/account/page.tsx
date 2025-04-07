@@ -14,6 +14,11 @@ type Invoice = {
   status: string;
 };
 
+// VALIDATEUR magique ✨
+const isValidSubscription = (value: any): value is 'none' | 'standard' | 'pro' => {
+  return ['none', 'standard', 'pro'].includes(value);
+};
+
 export default function AccountPage() {
   const { data: session, status, update } = useSession();
   const router = useRouter();
@@ -30,7 +35,8 @@ export default function AccountPage() {
     }
 
     if (status === 'authenticated') {
-      setSubscription(session?.user?.subscription ?? 'none');
+      const userSub = session?.user?.subscription;
+      setSubscription(isValidSubscription(userSub) ? userSub : 'none');
       setCredits(session?.user?.credits ?? 0);
 
       const fetchInvoices = async () => {
