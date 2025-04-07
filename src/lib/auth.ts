@@ -1,7 +1,7 @@
 import GoogleProvider from "next-auth/providers/google";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { PrismaClient } from "@prisma/client";
-import type { NextAuthOptions } from "next-auth";
+import type { NextAuthOptions, Session } from "next-auth";
 
 const prisma = new PrismaClient();
 
@@ -27,17 +27,19 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async session({ session, user }) {
       if (session.user) {
-        // 👇 Casting pour accéder aux propriétés custom
-        session.user.id = user.id;
-        (session.user as any).credits = user.credits;
-        (session.user as any).subscription = user.subscription;
-        (session.user as any).isUnlimited = user.isUnlimited;
+        session.user = {
+          id: user.id,
+          email: user.email!,
+          credits: user.credits as number,
+          subscription: user.subscription as 'pro' | 'standard' | 'none',
+          isUnlimited: user.isUnlimited as boolean,
+        };
       }
       return session;
     },
   },
   pages: {
-    signIn: '/login',
+    signIn: "/login",
   },
   secret: process.env.NEXTAUTH_SECRET,
 };
