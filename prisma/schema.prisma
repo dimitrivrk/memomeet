@@ -1,0 +1,66 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+
+model User {
+  id                String   @id @default(cuid())
+  name              String?
+  email             String   @unique
+  emailVerified     DateTime?
+  image             String?
+  credits           Int      @default(3)
+  subscription      String   @default("none") // 'none', 'standard', 'pro'
+  isUnlimited       Boolean  @default(false)  // ✅ nouveau champ pour Pro illimité
+  stripeCustomerId  String?                   // pour lier à Stripe
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  accounts          Account[]
+  sessions          Session[]
+  summaries         Summary[]                 // ✅ historique des résumés
+}
+
+model Account {
+  id                String   @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  access_token      String?
+  expires_at        Int?
+  id_token          String?
+  refresh_token     String?
+  token_type        String?
+  scope             String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Summary {
+  id        String   @id @default(cuid())
+  userId    String
+  content   String
+  source    String
+  createdAt DateTime @default(now())
+  tasks     Json     @default("[]") //  JSON pour stocker la liste de tâches
+
+  user User @relation(fields: [userId], references: [id])
+}
+
