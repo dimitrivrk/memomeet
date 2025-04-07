@@ -36,8 +36,19 @@ export const authOptions: NextAuthOptions = {
       }
       return session;
     },
-    async redirect({baseUrl }) {
-      return baseUrl; // 👈 redirection vers la home après connexion
+    async redirect({ baseUrl }) {
+      return baseUrl;
+    },
+  },
+  cookies: {
+    sessionToken: {
+      name: `__Secure-next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'none',
+        path: '/',
+        secure: true,
+      },
     },
   },
   pages: {
