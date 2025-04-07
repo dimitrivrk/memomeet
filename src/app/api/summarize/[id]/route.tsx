@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { PrismaClient } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -74,7 +75,7 @@ export async function PATCH(req: NextRequest) {
     where: { id },
     data: {
       content: content ?? existing.content,
-      tasks: Array.isArray(tasks) ? tasks : existing.tasks,
+      tasks: Array.isArray(tasks) ? (tasks as any[]) : existing.tasks,
     },
   });
 
