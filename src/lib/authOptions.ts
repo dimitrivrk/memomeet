@@ -31,7 +31,7 @@ export const authOptions: NextAuthOptions = {
       if (session?.user && token) {
         session.user.id = token.id as string;
         session.user.credits = token.credits as number;
-        session.user.subscription = token.subscription as string;
+        session.user.subscription = token.subscription as 'none' | 'standard' | 'pro';
         session.user.isUnlimited = token.isUnlimited as boolean;
       }
       return session;
