@@ -12,7 +12,11 @@ type ResultType = {
   credits?: number;
 };
 
-export default function UploadForm() {
+type UploadFormProps = {
+  onCreditUsed?: (credits: number) => void;
+};
+
+export default function UploadForm({ onCreditUsed }: UploadFormProps) {
   const [file, setFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<ResultType | null>(null);
@@ -20,7 +24,7 @@ export default function UploadForm() {
   const [error, setError] = useState<string | null>(null);
 
   const { data: session } = useSession();
-  const { setCredits } = useCredits(); // mise à jour globale des crédits
+  const { setCredits } = useCredits(); // mise à jour globale des crédits si aucune prop fournie
 
   const handleUpload = async () => {
     if (!file) return;
@@ -54,8 +58,13 @@ export default function UploadForm() {
       setResult(data);
       setShowTranscript(false);
 
+      // Mettre à jour les crédits si fournis et si abonnement ≠ pro
       if (session?.user?.subscription !== 'pro' && typeof data.credits === 'number') {
-        setCredits(data.credits);
+        if (onCreditUsed) {
+          onCreditUsed(data.credits); // callback du parent
+        } else {
+          setCredits(data.credits); // fallback global
+        }
       }
     } catch {
       setError('Erreur de connexion au serveur.');
