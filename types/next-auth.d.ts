@@ -1,31 +1,29 @@
-// types/next-auth.d.ts
+import type { DefaultSession } from "next-auth"
 
-// PAS D'IMPORT ICI !
-
-declare module 'next-auth' {
+declare module "next-auth" {
   interface Session {
     user: {
-      id: string;
-      name?: string | null;
-      email?: string | null;
-      image?: string | null;
-      subscription?: 'none' | 'standard' | 'pro';
-      credits?: number;
-      isUnlimited?: boolean;
-    };
+      id: string
+      email?: string | null
+      name?: string | null
+      image?: string | null
+      subscription?: 'none' | 'standard' | 'pro'
+      credits?: number
+      isUnlimited?: boolean
+    } & DefaultSession["user"]
   }
 
   interface User {
-    id: string;
-    subscription?: 'none' | 'standard' | 'pro';
-    credits?: number;
-    isUnlimited?: boolean;
+    id: string
+    subscription?: 'none' | 'standard' | 'pro'
+    credits?: number
+    isUnlimited?: boolean
   }
 
   interface JWT {
-    id?: string;
-    subscription?: 'none' | 'standard' | 'pro';
-    credits?: number;
-    isUnlimited?: boolean;
+    id?: string
+    subscription?: 'none' | 'standard' | 'pro'
+    credits?: number
+    isUnlimited?: boolean
   }
 }
