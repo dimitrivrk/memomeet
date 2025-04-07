@@ -1,4 +1,3 @@
-// app/api/summarize/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 import { v4 as uuidv4 } from 'uuid';
@@ -25,25 +24,32 @@ export async function POST(req: NextRequest) {
     const safeName = `${id}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, '')}`;
     const buffer = Buffer.from(await file.arrayBuffer());
     const tempPath = path.join(tmpdir(), safeName);
+
     await writeFile(tempPath, buffer);
 
-    // Appelle l’API /process avec le bon payload
-    const res = await fetch(`${process.env.NEXT_PUBLIC_URL}/api/process`, {
+    // Appel de l'API interne pour lancer le traitement
+    const processRes = await fetch(`${process.env.NEXT_PUBLIC_URL}/api/process`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         fileId: id,
-        safename: file.name,
+        filename: safeName, // 💥 C'était ton bug principal
         userId: token.sub,
       }),
     });
 
-    const data = await res.json();
+    if (!processRes.ok) {
+      const errorText = await processRes.text();
+      console.error('Erreur de /process :', errorText);
+      return NextResponse.json({ error: 'Erreur lors du traitement du fichier.' }, { status: 500 });
+    }
+
+    const data = await processRes.json();
     return NextResponse.json(data);
   } catch (err) {
-    console.error('Erreur summarize route:', err);
+    console.error('Erreur summarize route:', err instanceof Error ? err.stack : err);
     return NextResponse.json({ error: 'Erreur serveur summarize.' }, { status: 500 });
   }
 }
