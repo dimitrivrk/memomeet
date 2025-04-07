@@ -1,29 +1,30 @@
-// NO IMPORTS HERE !
-// Juste le module declare
+// types/next-auth.d.ts
+
+// PAS D'IMPORT ICI !
 
 declare module 'next-auth' {
   interface Session {
     user: {
-      id: string; // 👈 C'est ça qui manquait
+      id: string;
       name?: string | null;
       email?: string | null;
       image?: string | null;
-      subscription?: string;
+      subscription?: 'none' | 'standard' | 'pro';
       credits?: number;
       isUnlimited?: boolean;
     };
   }
 
   interface User {
-    id: string; // 👈 Ça aussi il vaut mieux l'ajouter ici
-    subscription?: string;
+    id: string;
+    subscription?: 'none' | 'standard' | 'pro';
     credits?: number;
     isUnlimited?: boolean;
   }
 
   interface JWT {
     id?: string;
-    subscription?: string;
+    subscription?: 'none' | 'standard' | 'pro';
     credits?: number;
     isUnlimited?: boolean;
   }
