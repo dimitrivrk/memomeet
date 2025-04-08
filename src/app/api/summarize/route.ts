@@ -29,14 +29,18 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const token = await getToken({ req });
-  
+
   if (!token?.sub) {
     return NextResponse.json({ error: 'Non autorisé.' }, { status: 401 });
   }
 
   const user = await prisma.user.findUnique({ where: { id: token.sub } });
 
-  if (!user || user.credits <= 0) {
+  if (!user) {
+    return NextResponse.json({ error: 'Utilisateur non trouvé.' }, { status: 404 });
+  }
+
+  if (!user.isUnlimited && user.credits <= 0) {
     return NextResponse.json({ error: 'Plus de crédits.' }, { status: 403 });
   }
 
@@ -98,10 +102,14 @@ export async function POST(req: NextRequest) {
       .map((t) => t.trim())
       .filter((t) => t.length > 5);
 
-    const updatedUser = await prisma.user.update({
-      where: { id: user.id },
-      data: { credits: { decrement: 1 } },
-    });
+    let updatedUser = user;
+
+    if (!user.isUnlimited) {
+      updatedUser = await prisma.user.update({
+        where: { id: user.id },
+        data: { credits: { decrement: 1 } },
+      });
+    }
 
     await prisma.summary.create({
       data: {
@@ -112,7 +120,12 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return NextResponse.json({ summary, tasks, transcript: transcriptText, credits: updatedUser.credits });
+    return NextResponse.json({
+      summary,
+      tasks,
+      transcript: transcriptText,
+      credits: updatedUser.credits,
+    });
   } catch (error) {
     console.error('Erreur OpenAI ou serveur:', error);
     return NextResponse.json({ error: 'Erreur serveur ou appel API.' }, { status: 500 });

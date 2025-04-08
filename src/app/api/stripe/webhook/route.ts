@@ -23,11 +23,6 @@ const SUBSCRIPTION_PRICE_IDS: Record<
   'price_1R5fj5K9mEToSu4YjLTjE1g3': { tier: 'pro', credits: 'unlimited' },
 };
 
-// 👇 ici on définit un typage étendu propre
-interface InvoiceWithSub extends Stripe.Invoice {
-  subscription: string;
-}
-
 export async function POST(req: NextRequest) {
   const rawBody = await req.text();
   const sig = req.headers.get('stripe-signature');
@@ -90,7 +85,7 @@ export async function POST(req: NextRequest) {
       }
 
       case 'invoice.paid': {
-        const invoice = event.data.object as InvoiceWithSub;
+        const invoice = event.data.object as Stripe.Invoice;
         const customerId = invoice.customer as string;
 
         const user = await prisma.user.findFirst({
@@ -99,19 +94,29 @@ export async function POST(req: NextRequest) {
 
         if (!user) break;
 
-        const subId = invoice.subscription;
-        const subscription = await stripe.subscriptions.retrieve(subId);
-        const priceId = subscription.items.data[0]?.price.id;
+        const subId = (invoice as Stripe.Invoice & { subscription?: string }).subscription;
 
-        const sub = SUBSCRIPTION_PRICE_IDS[priceId];
+        if (!subId || typeof subId !== 'string') {
+          console.warn(`⚠️ invoice.paid ignoré : pas de subscription id`);
+          break;
+        }
 
-        if (sub && sub.credits !== 'unlimited') {
-          await prisma.user.update({
-            where: { id: user.id },
-            data: { credits: { increment: sub.credits } },
-          });
+        try {
+          const subscription = await stripe.subscriptions.retrieve(subId);
+          const priceId = subscription.items.data[0]?.price.id;
 
-          console.log(`💳 ${sub.credits} crédits ajoutés à ${user.email}`);
+          const sub = SUBSCRIPTION_PRICE_IDS[priceId];
+
+          if (sub && sub.credits !== 'unlimited') {
+            await prisma.user.update({
+              where: { id: user.id },
+              data: { credits: { increment: sub.credits } },
+            });
+
+            console.log(`💳 ${sub.credits} crédits ajoutés à ${user.email}`);
+          }
+        } catch (err) {
+          console.error(`💥 Erreur récupération abonnement avec ID ${subId}:`, err);
         }
 
         break;
