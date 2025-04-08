@@ -4,6 +4,7 @@ import { useSession } from 'next-auth/react';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCredits } from '@/context/CreditContext';
+import { useSubscription } from '@/context/SubscriptionContext';
 
 type Invoice = {
   id: string;
@@ -14,17 +15,13 @@ type Invoice = {
   status: string;
 };
 
-const isValidSubscription = (value: unknown): value is 'none' | 'standard' | 'pro' => {
-  return typeof value === 'string' && ['none', 'standard', 'pro'].includes(value);
-};
-
 export default function AccountPage() {
-  const { data: session, status, update } = useSession(); // ✅ session récupérée ici
+  const { data: session, status, update } = useSession();
   const router = useRouter();
-  const { credits, setCredits } = useCredits();
+  const { credits, refreshCredits } = useCredits();
+  const { subscription, refreshSubscription, setSubscription } = useSubscription();
   const hasFetched = useRef(false);
 
-  const [subscription, setSubscription] = useState<'standard' | 'pro' | 'none'>('none');
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loadingInvoices, setLoadingInvoices] = useState(true);
 
@@ -37,17 +34,11 @@ export default function AccountPage() {
     if (status === 'authenticated' && !hasFetched.current) {
       hasFetched.current = true;
 
-      const fetchUserAndInvoices = async () => {
+      const fetchAll = async () => {
         try {
-          const res = await fetch('/api/me');
-          const data = await res.json();
-
-          if (data?.user) {
-            setCredits(data.user.credits ?? 0);
-            setSubscription(
-              isValidSubscription(data.user.subscription) ? data.user.subscription : 'none'
-            );
-          }
+          await update();
+          await refreshCredits();
+          await refreshSubscription();
 
           const invoiceRes = await fetch('/api/stripe/invoices');
           const invoiceData = await invoiceRes.json();
@@ -59,18 +50,20 @@ export default function AccountPage() {
         }
       };
 
-      fetchUserAndInvoices();
+      fetchAll();
     }
-  }, [status, router, setCredits, update]);
+  }, [status, router, update, refreshCredits, refreshSubscription]);
 
   const handleUnsubscribe = async () => {
     if (!confirm('Souhaites-tu vraiment annuler ton abonnement ?')) return;
+
     const res = await fetch('/api/stripe/unsubscribe', { method: 'POST' });
     const data = await res.json();
+
     if (data.success) {
       alert('Abonnement annulé.');
       await update();
-      setSubscription('none');
+      await refreshSubscription();
     } else {
       alert('Erreur : ' + data.error);
     }

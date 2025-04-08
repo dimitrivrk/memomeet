@@ -1,28 +1,23 @@
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { Menu, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useCredits } from '@/context/CreditContext';
+import { useSubscription } from '@/context/SubscriptionContext';
 
-type SidebarProps = {
-  credits?: number;
-};
-
-export default function Sidebar({ credits: propCredits }: SidebarProps) {
+export default function Sidebar() {
   const [open, setOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
+  const hasFetched = useRef(false);
 
   const router = useRouter();
   const pathname = usePathname();
-  const { data: session, status, update } = useSession();
-  const { credits: contextCredits, setCredits } = useCredits();
-
-  const credits = propCredits ?? contextCredits;
-
-  const hasFetched = useRef(false); // ✅ anti boucle inf
+  const { data: session, status } = useSession();
+  const { credits, refreshCredits } = useCredits();
+  const { subscription, refreshSubscription } = useSubscription();
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -35,23 +30,12 @@ export default function Sidebar({ credits: propCredits }: SidebarProps) {
   }, []);
 
   useEffect(() => {
-    const refreshCredits = async () => {
-      try {
-        if (status === 'authenticated' && contextCredits == null && !hasFetched.current) {
-          hasFetched.current = true;
-          const res = await fetch('/api/me');
-          const data = await res.json();
-          if (data?.user?.credits !== undefined) {
-            setCredits(data.user.credits);
-          }
-        }
-      } catch (e) {
-        console.error('🔁 Sidebar fetch credit fail', e);
-      }
-    };
-
-    refreshCredits();
-  }, [status, contextCredits, update, setCredits]);
+    if (status === 'authenticated' && !hasFetched.current) {
+      hasFetched.current = true;
+      refreshCredits();
+      refreshSubscription();
+    }
+  }, [status, refreshCredits, refreshSubscription]);
 
   const toggleTheme = () => {
     const newDarkMode = !darkMode;
@@ -68,8 +52,6 @@ export default function Sidebar({ credits: propCredits }: SidebarProps) {
   const isActive = (path: string) => pathname === path;
 
   const email = session?.user?.email ?? '';
-  const subscription = session?.user?.subscription ?? 'none';
-
   const subscriptionLabel =
     subscription === 'pro'
       ? 'Pro (illimité)'
@@ -123,7 +105,7 @@ export default function Sidebar({ credits: propCredits }: SidebarProps) {
               )}
 
               <nav className="flex flex-col p-4 gap-3 text-sm flex-1">
-                {[ 
+                {[
                   { path: '/', label: 'Accueil' },
                   { path: '/history', label: 'Historique' },
                   { path: '/account', label: 'Mon compte' },

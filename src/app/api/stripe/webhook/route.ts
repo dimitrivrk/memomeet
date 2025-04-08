@@ -40,95 +40,106 @@ export async function POST(req: NextRequest) {
     return new NextResponse('Signature invalide', { status: 400 });
   }
 
-  switch (event.type) {
-    case 'checkout.session.completed': {
-      const session = event.data.object as Stripe.Checkout.Session;
-      const userId = session.metadata?.userId;
-      const priceId = session.metadata?.priceId;
-      const credits = PRICE_TO_CREDITS[priceId ?? ''];
+  try {
+    switch (event.type) {
+      case 'checkout.session.completed': {
+        const session = event.data.object as Stripe.Checkout.Session;
+        const userId = session.metadata?.userId;
+        const priceId = session.metadata?.priceId;
+        const credits = PRICE_TO_CREDITS[priceId ?? ''];
 
-      if (userId && credits) {
-        await prisma.user.update({
-          where: { id: userId },
-          data: { credits: { increment: credits } },
-        });
-        console.log(`✅ ${credits} crédits ajoutés à l'utilisateur ${userId}`);
+        if (userId && credits) {
+          await prisma.user.update({
+            where: { id: userId },
+            data: { credits: { increment: credits } },
+          });
+          console.log(`✅ ${credits} crédits ajoutés à l'utilisateur ${userId}`);
+        }
+        break;
       }
-      break;
-    }
 
-    case 'customer.subscription.created': {
-      const subscription = event.data.object as Stripe.Subscription;
-      const customerId = subscription.customer as string;
-      const priceId = subscription.items.data[0].price.id;
-      const sub = SUBSCRIPTION_PRICE_IDS[priceId];
+      case 'customer.subscription.created': {
+        const subscription = event.data.object as Stripe.Subscription;
+        const customerId = subscription.customer as string;
+        const priceId = subscription.items.data[0].price.id;
+        const sub = SUBSCRIPTION_PRICE_IDS[priceId];
 
-      if (!sub) break;
+        if (!sub) break;
 
-      const user = await prisma.user.findFirst({
-        where: { stripeCustomerId: customerId },
-      });
+        const user = await prisma.user.findFirst({
+          where: { stripeCustomerId: customerId },
+        });
 
-      if (!user) break;
+        if (!user) break;
 
-      await prisma.user.update({
-        where: { id: user.id },
-        data: {
-          subscription: sub.tier,
-          isUnlimited: sub.credits === 'unlimited',
-        },
-      });
-
-      console.log(`🎉 Abonnement ${sub.tier} activé pour ${user.email}`);
-      break;
-    }
-
-    case 'invoice.paid': {
-      const invoice = event.data.object as Stripe.Invoice;
-      const customerId = invoice.customer as string;
-
-      const user = await prisma.user.findFirst({
-        where: { stripeCustomerId: customerId },
-      });
-
-      if (!user) break;
-
-      // 💥 Stripe types n’incluent pas `subscription` sur Invoice, donc on cast
-      const subId = (invoice as Stripe.Invoice & { subscription: string }).subscription;
-
-      const subscription = await stripe.subscriptions.retrieve(subId);
-      const priceId = subscription.items.data[0].price.id;
-      const sub = SUBSCRIPTION_PRICE_IDS[priceId];
-
-      if (sub && sub.credits !== 'unlimited') {
         await prisma.user.update({
           where: { id: user.id },
-          data: { credits: { increment: sub.credits } },
+          data: {
+            subscription: sub.tier,
+            isUnlimited: sub.credits === 'unlimited',
+          },
         });
 
-        console.log(`💳 ${sub.credits} crédits ajoutés à ${user.email}`);
+        console.log(`🎉 Abonnement ${sub.tier} activé pour ${user.email}`);
+        break;
       }
-      break;
+
+      case 'invoice.paid': {
+        const invoice = event.data.object as Stripe.Invoice;
+        const customerId = invoice.customer as string;
+
+        const user = await prisma.user.findFirst({
+          where: { stripeCustomerId: customerId },
+        });
+
+        if (!user) break;
+
+        const subId = (invoice as any).subscription;
+
+        if (!subId) {
+          console.warn('⚠️ Aucun ID de souscription trouvé dans la facture');
+          break;
+        }
+
+        const subscription = await stripe.subscriptions.retrieve(subId);
+        const priceId = subscription.items.data[0]?.price.id;
+
+        const sub = SUBSCRIPTION_PRICE_IDS[priceId];
+
+        if (sub && sub.credits !== 'unlimited') {
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { credits: { increment: sub.credits } },
+          });
+
+          console.log(`💳 ${sub.credits} crédits ajoutés à ${user.email}`);
+        }
+
+        break;
+      }
+
+      case 'customer.subscription.deleted': {
+        const subscription = event.data.object as Stripe.Subscription;
+        const customerId = subscription.customer as string;
+
+        await prisma.user.updateMany({
+          where: { stripeCustomerId: customerId },
+          data: {
+            subscription: 'none',
+            isUnlimited: false,
+          },
+        });
+
+        console.log(`🚫 Abonnement annulé pour ${customerId}`);
+        break;
+      }
+
+      default:
+        console.log(`🔔 Événement Stripe ignoré : ${event.type}`);
     }
-
-    case 'customer.subscription.deleted': {
-      const subscription = event.data.object as Stripe.Subscription;
-      const customerId = subscription.customer as string;
-
-      await prisma.user.updateMany({
-        where: { stripeCustomerId: customerId },
-        data: {
-          subscription: 'none',
-          isUnlimited: false,
-        },
-      });
-
-      console.log(`🚫 Abonnement annulé pour ${customerId}`);
-      break;
-    }
-
-    default:
-      console.log(`🔔 Événement Stripe ignoré : ${event.type}`);
+  } catch (err) {
+    console.error('🔥 Erreur de traitement Stripe :', err);
+    return new NextResponse('Erreur serveur', { status: 500 });
   }
 
   return NextResponse.json({ received: true });

@@ -5,12 +5,14 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { useCredits } from '@/context/CreditContext';
+import { useSubscription } from '@/context/SubscriptionContext';
 
 export default function BuySuccessPage() {
   const router = useRouter();
   const { update } = useSession();
   const { refreshCredits } = useCredits();
-  const hasRun = useRef(false); // 🛡️ Anti-boucle de l’espace
+  const { refreshSubscription } = useSubscription();
+  const hasRun = useRef(false); // 🛡️ Pour éviter les crises existentielles en boucle
 
   useEffect(() => {
     if (hasRun.current) return;
@@ -18,19 +20,21 @@ export default function BuySuccessPage() {
 
     const sync = async () => {
       try {
-        await update();          // 🔁 Refresh session
-        await refreshCredits();  // 📦 Update context credits
+        await update();              // 🔁 Refresh session
+        await refreshCredits();      // 📦 Credits from /api/me
+        await refreshSubscription(); // 🧾 Abonnement from /api/me
       } catch (err) {
-        console.error('Erreur lors de la mise à jour des crédits :', err);
+        console.error('Erreur lors du refresh des données après paiement :', err);
       }
 
+      // ⏱ Redirection douce
       setTimeout(() => {
         router.push('/');
       }, 4000);
     };
 
     sync();
-  }, [update, refreshCredits, router]);
+  }, [update, refreshCredits, refreshSubscription, router]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-green-50 dark:bg-neutral-900 px-4">
