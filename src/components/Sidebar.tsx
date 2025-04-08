@@ -107,8 +107,8 @@ export default function Sidebar() {
               <nav className="flex flex-col p-4 gap-3 text-sm flex-1">
                 {[
                   { path: '/', label: 'Accueil' },
-                  { path: '/history', label: 'Historique' },
                   { path: '/account', label: 'Mon compte' },
+                  { path: '/history', label: 'Historique' },
                   { path: '/buy', label: 'Crédits / Abonnement' },
                 ].map(({ path, label }) => (
                   <button
@@ -142,11 +142,13 @@ export default function Sidebar() {
 
                 {status === 'authenticated' && (
                   <button
-                    onClick={() => signOut({ callbackUrl: '/login' })}
-                    className="text-sm text-red-600 dark:text-red-400 underline"
-                  >
-                    Se déconnecter
-                  </button>
+                  onClick={() => signOut({ callbackUrl: '/login' })}
+                  className="w-full flex items-center justify-center gap-2 text-white bg-red-600 hover:bg-red-700 transition-colors px-4 py-2 rounded-xl text-sm font-medium shadow-sm"
+                >
+                 
+                   
+                  Se déconnecter
+                </button>
                 )}
               </div>
             </motion.aside>
