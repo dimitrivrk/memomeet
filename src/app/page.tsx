@@ -49,7 +49,7 @@ export default function Home() {
     <div className="flex">
       <Sidebar />
       <main className="flex-1 min-h-screen flex flex-col items-center justify-center bg-gray-100 dark:bg-zinc-900 p-4 text-gray-800 dark:text-gray-100">
-        <UploadForm onCreditUsed={(newCredits) => refreshCredits()} />
+        <UploadForm onCreditUsed={() => refreshCredits()} />
       </main>
     </div>
   );

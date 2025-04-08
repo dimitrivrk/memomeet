@@ -23,6 +23,11 @@ const SUBSCRIPTION_PRICE_IDS: Record<
   'price_1R5fj5K9mEToSu4YjLTjE1g3': { tier: 'pro', credits: 'unlimited' },
 };
 
+// 👇 ici on définit un typage étendu propre
+interface InvoiceWithSub extends Stripe.Invoice {
+  subscription: string;
+}
+
 export async function POST(req: NextRequest) {
   const rawBody = await req.text();
   const sig = req.headers.get('stripe-signature');
@@ -85,7 +90,7 @@ export async function POST(req: NextRequest) {
       }
 
       case 'invoice.paid': {
-        const invoice = event.data.object as Stripe.Invoice;
+        const invoice = event.data.object as InvoiceWithSub;
         const customerId = invoice.customer as string;
 
         const user = await prisma.user.findFirst({
@@ -94,13 +99,7 @@ export async function POST(req: NextRequest) {
 
         if (!user) break;
 
-        const subId = (invoice as any).subscription;
-
-        if (!subId) {
-          console.warn('⚠️ Aucun ID de souscription trouvé dans la facture');
-          break;
-        }
-
+        const subId = invoice.subscription;
         const subscription = await stripe.subscriptions.retrieve(subId);
         const priceId = subscription.items.data[0]?.price.id;
 

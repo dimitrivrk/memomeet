@@ -19,7 +19,7 @@ export default function AccountPage() {
   const { data: session, status, update } = useSession();
   const router = useRouter();
   const { credits, refreshCredits } = useCredits();
-  const { subscription, refreshSubscription, setSubscription } = useSubscription();
+  const { subscription, refreshSubscription } = useSubscription();
   const hasFetched = useRef(false);
 
   const [invoices, setInvoices] = useState<Invoice[]>([]);
