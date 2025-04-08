@@ -1,16 +1,18 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, useRef } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { useSession } from 'next-auth/react';
 
 type CreditContextType = {
   credits: number | null;
   setCredits: (credits: number) => void;
+  refreshCredits: () => Promise<void>;
 };
 
 const CreditContext = createContext<CreditContextType>({
   credits: null,
   setCredits: () => {},
+  refreshCredits: async () => {},
 });
 
 export const CreditProvider = ({ children }: { children: React.ReactNode }) => {
@@ -18,28 +20,27 @@ export const CreditProvider = ({ children }: { children: React.ReactNode }) => {
   const [credits, setCredits] = useState<number | null>(null);
   const hasFetched = useRef(false);
 
-  useEffect(() => {
-    const fetchCredits = async () => {
-      if (status === 'authenticated' && !hasFetched.current) {
-        hasFetched.current = true;
-
-        try {
-          const res = await fetch('/api/me');
-          const data = await res.json();
-          if (data?.user?.credits !== undefined) {
-            setCredits(data.user.credits);
-          }
-        } catch (err) {
-          console.error('Erreur récupération crédits dans CreditProvider:', err);
-        }
+  const refreshCredits = async () => {
+    try {
+      const res = await fetch('/api/me');
+      const data = await res.json();
+      if (data?.user?.credits !== undefined) {
+        setCredits(data.user.credits);
       }
-    };
+    } catch (err) {
+      console.error('Erreur lors du refresh des crédits :', err);
+    }
+  };
 
-    fetchCredits();
+  useEffect(() => {
+    if (status === 'authenticated' && !hasFetched.current) {
+      hasFetched.current = true;
+      refreshCredits();
+    }
   }, [status]);
 
   return (
-    <CreditContext.Provider value={{ credits, setCredits }}>
+    <CreditContext.Provider value={{ credits, setCredits, refreshCredits }}>
       {children}
     </CreditContext.Provider>
   );
