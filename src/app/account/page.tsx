@@ -14,8 +14,8 @@ type Invoice = {
   status: string;
 };
 
-const isValidSubscription = (value: any): value is 'none' | 'standard' | 'pro' => {
-  return ['none', 'standard', 'pro'].includes(value);
+const isValidSubscription = (value: unknown): value is 'none' | 'standard' | 'pro' => {
+  return typeof value === 'string' && ['none', 'standard', 'pro'].includes(value);
 };
 
 export default function AccountPage() {
