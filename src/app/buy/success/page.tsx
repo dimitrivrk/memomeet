@@ -1,19 +1,36 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import Link from 'next/link';
+import { useCredits } from '@/context/CreditContext';
 
 export default function BuySuccessPage() {
   const router = useRouter();
+  const { update } = useSession();
+  const { refreshCredits } = useCredits();
+  const hasRun = useRef(false); // 🛡️ Anti-boucle de l’espace
 
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      router.push('/');
-    }, 4000);
+    if (hasRun.current) return;
+    hasRun.current = true;
 
-    return () => clearTimeout(timeout);
-  }, [router]);
+    const sync = async () => {
+      try {
+        await update();          // 🔁 Refresh session
+        await refreshCredits();  // 📦 Update context credits
+      } catch (err) {
+        console.error('Erreur lors de la mise à jour des crédits :', err);
+      }
+
+      setTimeout(() => {
+        router.push('/');
+      }, 4000);
+    };
+
+    sync();
+  }, [update, refreshCredits, router]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-green-50 dark:bg-neutral-900 px-4">

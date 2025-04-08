@@ -1,9 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 'use client';
 
 import { useSession } from 'next-auth/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCredits } from '@/context/CreditContext';
 
@@ -16,15 +14,15 @@ type Invoice = {
   status: string;
 };
 
-// VALIDATEUR magique ✨
 const isValidSubscription = (value: any): value is 'none' | 'standard' | 'pro' => {
   return ['none', 'standard', 'pro'].includes(value);
 };
 
 export default function AccountPage() {
-  const { data: session, status, update } = useSession();
+  const { data: session, status, update } = useSession(); // ✅ session récupérée ici
   const router = useRouter();
   const { credits, setCredits } = useCredits();
+  const hasFetched = useRef(false);
 
   const [subscription, setSubscription] = useState<'standard' | 'pro' | 'none'>('none');
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -36,36 +34,34 @@ export default function AccountPage() {
       return;
     }
 
-    if (status === 'authenticated') {
-      const user = session?.user as {
-        id: string;
-        name?: string | null;
-        email?: string | null;
-        image?: string | null;
-        subscription?: 'none' | 'standard' | 'pro';
-        credits?: number;
-        isUnlimited?: boolean;
-      };
-  
-      const userSub = user?.subscription;
-      setSubscription(isValidSubscription(userSub) ? userSub : 'none');
-      setCredits(user?.credits ?? 0);
+    if (status === 'authenticated' && !hasFetched.current) {
+      hasFetched.current = true;
 
-      const fetchInvoices = async () => {
+      const fetchUserAndInvoices = async () => {
         try {
-          const res = await fetch('/api/stripe/invoices');
+          const res = await fetch('/api/me');
           const data = await res.json();
-          setInvoices(data.invoices || []);
+
+          if (data?.user) {
+            setCredits(data.user.credits ?? 0);
+            setSubscription(
+              isValidSubscription(data.user.subscription) ? data.user.subscription : 'none'
+            );
+          }
+
+          const invoiceRes = await fetch('/api/stripe/invoices');
+          const invoiceData = await invoiceRes.json();
+          setInvoices(invoiceData.invoices || []);
         } catch (e) {
-          console.error('Erreur factures:', e);
+          console.error('Erreur récupération données :', e);
         } finally {
           setLoadingInvoices(false);
         }
       };
 
-      fetchInvoices();
+      fetchUserAndInvoices();
     }
-  }, [status, session, router, setCredits]);
+  }, [status, router, setCredits, update]);
 
   const handleUnsubscribe = async () => {
     if (!confirm('Souhaites-tu vraiment annuler ton abonnement ?')) return;
@@ -98,13 +94,11 @@ export default function AccountPage() {
         <section className="bg-white dark:bg-neutral-800 rounded-2xl shadow p-6">
           <h1 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">Mon compte</h1>
           <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
-            <p>📧 <strong>Email :</strong> {session?.user?.email}</p>
-            <p>💳 <strong>Crédits :</strong> {credits}</p>
+            <p>📧 <strong>Email :</strong> {session?.user?.email ?? 'Inconnu'}</p>
+            <p>💳 <strong>Crédits :</strong> {credits ?? 0}</p>
             <p className="flex items-center gap-2">
               🔁 <strong>Abonnement :</strong>
-              <span
-                className={`text-white text-xs font-medium px-2 py-1 rounded-full ${subscriptionColor}`}
-              >
+              <span className={`text-white text-xs font-medium px-2 py-1 rounded-full ${subscriptionColor}`}>
                 {subscriptionLabel}
               </span>
             </p>

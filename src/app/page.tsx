@@ -4,22 +4,38 @@ import UploadForm from '@/components/UploadForm';
 import Sidebar from '@/components/Sidebar';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef } from 'react';
+import { useCredits } from '@/context/CreditContext';
 
 export default function Home() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
-
-  const [credits, setCredits] = useState<number>(0);
+  const { setCredits } = useCredits();
+  const fetched = useRef(false); // Anti-boucle
 
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/login');
     }
-    if (status === 'authenticated' && session?.user?.credits !== undefined) {
-      setCredits(session.user.credits);
+
+    if (status === 'authenticated' && !fetched.current) {
+      fetched.current = true;
+
+      const fetchCredits = async () => {
+        try {
+          const res = await fetch('/api/me');
+          const data = await res.json();
+          if (data?.user?.credits !== undefined) {
+            setCredits(data.user.credits);
+          }
+        } catch (e) {
+          console.error('💥 Erreur fetch crédits depuis Home', e);
+        }
+      };
+
+      fetchCredits();
     }
-  }, [status, session, router]);
+  }, [status, router, setCredits]);
 
   if (status === 'loading') {
     return <p className="text-center mt-8 text-gray-700 dark:text-gray-200">Chargement...</p>;
@@ -27,17 +43,9 @@ export default function Home() {
 
   return (
     <div className="flex">
-      <Sidebar credits={credits} />
+      <Sidebar />
       <main className="flex-1 min-h-screen flex flex-col items-center justify-center bg-gray-100 dark:bg-zinc-900 p-4 text-gray-800 dark:text-gray-100">
         <UploadForm onCreditUsed={(newCredits) => setCredits(newCredits)} />
-
-        {/* 🧪 Debug Zone */}
-        <div className="mt-8 p-4 bg-white dark:bg-zinc-800 rounded shadow text-sm max-w-xl w-full">
-          <p className="font-semibold mb-2">🧠 Données de session :</p>
-          <pre className="whitespace-pre-wrap break-words text-xs text-gray-700 dark:text-gray-200">
-            {JSON.stringify({ status, session }, null, 2)}
-          </pre>
-        </div>
       </main>
     </div>
   );

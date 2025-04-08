@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { Menu, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -17,17 +17,12 @@ export default function Sidebar({ credits: propCredits }: SidebarProps) {
 
   const router = useRouter();
   const pathname = usePathname();
-  const { data: session, status } = useSession();
-  const { credits: contextCredits } = useCredits();
+  const { data: session, status, update } = useSession();
+  const { credits: contextCredits, setCredits } = useCredits();
 
-  const credits = propCredits ?? contextCredits; // 👈 Priorité aux props
+  const credits = propCredits ?? contextCredits;
 
-  const navigate = (path: string) => {
-    setOpen(false);
-    router.push(path);
-  };
-
-  const isActive = (path: string) => pathname === path;
+  const hasFetched = useRef(false); // ✅ anti boucle inf
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -39,12 +34,38 @@ export default function Sidebar({ credits: propCredits }: SidebarProps) {
     }
   }, []);
 
+  useEffect(() => {
+    const refreshCredits = async () => {
+      try {
+        if (status === 'authenticated' && contextCredits == null && !hasFetched.current) {
+          hasFetched.current = true;
+          const res = await fetch('/api/me');
+          const data = await res.json();
+          if (data?.user?.credits !== undefined) {
+            setCredits(data.user.credits);
+          }
+        }
+      } catch (e) {
+        console.error('🔁 Sidebar fetch credit fail', e);
+      }
+    };
+
+    refreshCredits();
+  }, [status, contextCredits, update, setCredits]);
+
   const toggleTheme = () => {
     const newDarkMode = !darkMode;
     setDarkMode(newDarkMode);
     document.documentElement.classList.toggle('dark', newDarkMode);
     localStorage.setItem('theme', newDarkMode ? 'dark' : 'light');
   };
+
+  const navigate = (path: string) => {
+    setOpen(false);
+    router.push(path);
+  };
+
+  const isActive = (path: string) => pathname === path;
 
   const email = session?.user?.email ?? '';
   const subscription = session?.user?.subscription ?? 'none';
@@ -96,13 +117,13 @@ export default function Sidebar({ credits: propCredits }: SidebarProps) {
               {status === 'authenticated' && (
                 <div className="px-4 py-3 border-b border-gray-200 dark:border-zinc-700 text-sm text-gray-700 dark:text-gray-300 space-y-1">
                   <p>{email}</p>
-                  <p>{credits} crédits</p>
+                  <p>{credits ?? 0} crédits</p>
                   <p>{subscriptionLabel}</p>
                 </div>
               )}
 
               <nav className="flex flex-col p-4 gap-3 text-sm flex-1">
-                {[
+                {[ 
                   { path: '/', label: 'Accueil' },
                   { path: '/history', label: 'Historique' },
                   { path: '/account', label: 'Mon compte' },
