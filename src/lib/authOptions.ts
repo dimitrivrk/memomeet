@@ -86,9 +86,10 @@ export const authOptions: NextAuthOptions = {
         const u = user as PrismaUser;
         extendedToken.id = u.id;
         extendedToken.credits = u.credits;
-        extendedToken.subscription = u.subscription;
+        extendedToken.subscription = u.subscription as 'none' | 'standard' | 'pro';
         extendedToken.isUnlimited = u.isUnlimited;
       }
+      
 
       if (account?.provider === 'google') {
         extendedToken.access_token = account.access_token ?? undefined;
