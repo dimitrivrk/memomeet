@@ -22,7 +22,7 @@ model User {
   updatedAt         DateTime @updatedAt
   accounts          Account[]
   sessions          Session[]
-  summaries         Summary[]                 // ✅ historique des résumés
+  summaries         Summary[] 
 }
 
 model Account {
@@ -32,12 +32,14 @@ model Account {
   provider          String
   providerAccountId String
   access_token      String?
-  expires_at        Int?
+  expires_at        BigInt?
   id_token          String?
   refresh_token     String?
   token_type        String?
   scope             String?
   session_state     String?
+  refresh_token_expires_in Int? // 👈 Ajoute ça si tu veux vraiment le garder
+
 
   user User @relation(fields: [userId], references: [id])
 

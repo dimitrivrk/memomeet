@@ -1,4 +1,5 @@
 import type { DefaultSession } from "next-auth"
+declare module 'html2pdf.js';
 
 declare module "next-auth" {
   interface Session {

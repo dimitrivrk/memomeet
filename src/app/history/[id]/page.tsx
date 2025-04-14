@@ -2,22 +2,25 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
+import { Document, Packer, Paragraph, TextRun } from 'docx';
+import { saveAs } from 'file-saver';
+import { useSession } from 'next-auth/react';
 
-type Summary = {
+interface Summary {
   id: string;
   content: string;
   source: string;
   createdAt: string;
   tasks: string[];
-};
+}
 
 export default function SummaryDetailPage() {
   const { id } = useParams();
   const router = useRouter();
+  const { data: session } = useSession();
 
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
-
   const [editedContent, setEditedContent] = useState('');
   const [editedTasks, setEditedTasks] = useState<string[]>([]);
   const [editing, setEditing] = useState(false);
@@ -35,7 +38,6 @@ export default function SummaryDetailPage() {
       }
       setLoading(false);
     };
-
     fetchSummary();
   }, [id]);
 
@@ -45,22 +47,41 @@ export default function SummaryDetailPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content: editedContent, tasks: editedTasks }),
     });
-    if (res.ok) alert('✅ Modifications enregistrées');
-    else alert('Erreur de sauvegarde');
+    res.ok ? alert('✅ Modifications enregistrées') : alert('Erreur de sauvegarde');
   };
-
-  const addTask = () => setEditedTasks((prev) => [...prev, '']);
-  const updateTask = (i: number, val: string) =>
-    setEditedTasks((prev) => prev.map((t, idx) => (i === idx ? val : t)));
-  const removeTask = (i: number) =>
-    setEditedTasks((prev) => prev.filter((_, idx) => idx !== i));
 
   const handleBlur = () => {
     if (editableRef.current) {
-      const text = editableRef.current.innerText;
-      setEditedContent(text);
+      setEditedContent(editableRef.current.innerText);
       setEditing(false);
     }
+  };
+
+  const exportToWord = () => {
+    if (!summary) return;
+    const doc = new Document({
+      sections: [
+        {
+          children: [
+            new Paragraph({ children: [new TextRun({ text: 'Résumé', bold: true, size: 32 })] }),
+            new Paragraph(editedContent),
+            new Paragraph({ text: 'Tâches :', spacing: { before: 200 } }),
+            ...editedTasks.map(task => new Paragraph(`• ${task}`)),
+          ],
+        },
+      ],
+    });
+    Packer.toBlob(doc).then(blob => saveAs(blob, `resume-${id}.docx`));
+  };
+
+  const exportToGoogleDocs = async () => {
+    const res = await fetch('/api/google/create-doc', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ summaryId: id, content: editedContent, tasks: editedTasks }),
+    });
+    const data = await res.json();
+    res.ok && data.url ? window.open(data.url, '_blank') : alert("Erreur lors de l'export Google Docs");
   };
 
   if (loading) return <p className="text-center mt-10">Chargement...</p>;
@@ -76,7 +97,6 @@ export default function SummaryDetailPage() {
           </p>
         </div>
 
-        {/* Affichage du résumé en mode Notion */}
         <div
           ref={editableRef}
           contentEditable={editing}
@@ -92,7 +112,6 @@ export default function SummaryDetailPage() {
           {editedContent}
         </div>
 
-        {/* Tâches */}
         <div className="mt-10">
           <h2 className="text-xl font-medium mb-4">📋 Tâches</h2>
           <div className="space-y-3">
@@ -102,12 +121,14 @@ export default function SummaryDetailPage() {
                 <input
                   type="text"
                   value={task}
-                  onChange={(e) => updateTask(i, e.target.value)}
-                  className="w-full text-base bg-transparent outline-none border-0 focus:ring-0 placeholder:text-gray-400 dark:placeholder:text-gray-500"
+                  onChange={e =>
+                    setEditedTasks(prev => prev.map((t, idx) => (i === idx ? e.target.value : t)))
+                  }
+                  className="w-full text-base bg-transparent outline-none"
                   placeholder="Nouvelle tâche"
                 />
                 <button
-                  onClick={() => removeTask(i)}
+                  onClick={() => setEditedTasks(prev => prev.filter((_, idx) => idx !== i))}
                   className="opacity-0 group-hover:opacity-100 text-xs text-red-500 hover:underline"
                 >
                   Supprimer
@@ -115,16 +136,31 @@ export default function SummaryDetailPage() {
               </div>
             ))}
             <button
-              onClick={addTask}
+              onClick={() => setEditedTasks(prev => [...prev, ''])}
               className="text-blue-600 dark:text-blue-400 text-sm mt-2 hover:underline"
             >
               ➕ Ajouter une tâche
             </button>
           </div>
         </div>
+      </div>
 
-        {/* Actions */}
-        <div className="flex justify-between items-center mt-10">
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-10 max-w-4xl mx-auto">
+        <div className="flex gap-3">
+          <button
+            onClick={exportToGoogleDocs}
+            className="bg-blue-100 dark:bg-blue-800 text-sm px-4 py-2 rounded hover:opacity-80"
+          >
+            Exporter vers Google Docs
+          </button>
+          <button
+            onClick={exportToWord}
+            className="bg-gray-200 dark:bg-neutral-700 text-sm px-4 py-2 rounded hover:opacity-80"
+          >
+            Exporter en Word
+          </button>
+        </div>
+        <div className="flex gap-4">
           <button
             onClick={() => router.back()}
             className="text-gray-500 dark:text-gray-400 text-sm hover:underline"
@@ -133,7 +169,7 @@ export default function SummaryDetailPage() {
           </button>
           <button
             onClick={handleSave}
-            className="bg-black dark:bg-white text-white dark:text-black px-5 py-2 rounded-lg text-sm font-medium hover:opacity-80 transition"
+            className="bg-black dark:bg-white text-white dark:text-black px-5 py-2 rounded-lg text-sm font-medium hover:opacity-80"
           >
             💾 Enregistrer
           </button>
