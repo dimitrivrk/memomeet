@@ -6,7 +6,18 @@ import { google } from 'googleapis';
 
 const prisma = new PrismaClient();
 
-async function refreshAccessToken(token: any) {
+type ExtendedToken = {
+  id?: string;
+  credits?: number;
+  subscription?: 'none' | 'standard' | 'pro';
+  isUnlimited?: boolean;
+  access_token?: string;
+  refresh_token?: string;
+  expires_at?: number;
+  error?: string;
+};
+
+async function refreshAccessToken(token: ExtendedToken): Promise<ExtendedToken> {
   const client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET
@@ -18,21 +29,23 @@ async function refreshAccessToken(token: any) {
 
   try {
     const { credentials } = await client.refreshAccessToken();
-    const refreshedToken = {
+    const refreshedToken: ExtendedToken = {
       ...token,
-      access_token: credentials.access_token,
-      expires_at: Math.floor(Date.now() / 1000 + (credentials.expiry_date ?? 3600) / 1000),
+      access_token: credentials.access_token ?? token.access_token,
+      expires_at: credentials.expiry_date
+        ? Math.floor(credentials.expiry_date / 1000)
+        : Math.floor(Date.now() / 1000 + 3600),
     };
 
-    // 🔁 Enregistre aussi en base
+    // 🔁 Mise à jour en base
     await prisma.account.updateMany({
       where: {
         provider: 'google',
         userId: token.id,
       },
       data: {
-        access_token: credentials.access_token ?? '',
-        expires_at: refreshedToken.expires_at,
+        access_token: refreshedToken.access_token ?? '',
+        expires_at: refreshedToken.expires_at ?? null,
       },
     });
 
@@ -67,24 +80,25 @@ export const authOptions: NextAuthOptions = {
 
   callbacks: {
     async jwt({ token, user, account }) {
+      const extendedToken = token as ExtendedToken;
+
       if (user) {
         const u = user as PrismaUser;
-        token.id = u.id;
-        token.credits = u.credits;
-        token.subscription = u.subscription;
-        token.isUnlimited = u.isUnlimited;
+        extendedToken.id = u.id;
+        extendedToken.credits = u.credits;
+        extendedToken.subscription = u.subscription;
+        extendedToken.isUnlimited = u.isUnlimited;
       }
 
       if (account?.provider === 'google') {
-        token.access_token = account.access_token;
-        token.refresh_token = account.refresh_token;
-        token.expires_at = account.expires_at;
+        extendedToken.access_token = account.access_token ?? undefined;
+        extendedToken.refresh_token = account.refresh_token ?? undefined;
+        extendedToken.expires_at = account.expires_at ?? undefined;
 
-        // Sauvegarde dans Prisma
         await prisma.account.updateMany({
           where: {
             provider: 'google',
-            userId: token.id,
+            userId: extendedToken.id,
           },
           data: {
             access_token: account.access_token ?? '',
@@ -94,24 +108,22 @@ export const authOptions: NextAuthOptions = {
         });
       }
 
-      // Rafraîchir si expiré
-      if (token.expires_at && Date.now() / 1000 > token.expires_at) {
-        return await refreshAccessToken(token);
+      if (extendedToken.expires_at && Date.now() / 1000 > extendedToken.expires_at) {
+        return await refreshAccessToken(extendedToken);
       }
 
-      return token;
+      return extendedToken;
     },
 
     async session({ session, token }) {
-      if (session.user && token) {
-        session.user.id = token.id as string;
-        session.user.credits = token.credits as number;
-        session.user.subscription = token.subscription as 'none' | 'standard' | 'pro';
-        session.user.isUnlimited = token.isUnlimited as boolean;
+      const t = token as ExtendedToken;
 
-        if (token.access_token) {
-          session.user.access_token = token.access_token as string;
-        }
+      if (session.user && t) {
+        session.user.id = t.id ?? '';
+        session.user.credits = t.credits ?? 0;
+        session.user.subscription = t.subscription ?? 'none';
+        session.user.isUnlimited = t.isUnlimited ?? false;
+        session.user.access_token = t.access_token ?? '';
       }
 
       return session;

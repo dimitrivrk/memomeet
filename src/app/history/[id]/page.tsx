@@ -4,7 +4,6 @@ import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { Document, Packer, Paragraph, TextRun } from 'docx';
 import { saveAs } from 'file-saver';
-import { useSession } from 'next-auth/react';
 
 interface Summary {
   id: string;
@@ -17,7 +16,6 @@ interface Summary {
 export default function SummaryDetailPage() {
   const { id } = useParams();
   const router = useRouter();
-  const { data: session } = useSession();
 
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -47,7 +45,12 @@ export default function SummaryDetailPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content: editedContent, tasks: editedTasks }),
     });
-    res.ok ? alert('✅ Modifications enregistrées') : alert('Erreur de sauvegarde');
+
+    if (res.ok) {
+      alert('✅ Modifications enregistrées');
+    } else {
+      alert('❌ Erreur de sauvegarde');
+    }
   };
 
   const handleBlur = () => {
@@ -59,11 +62,14 @@ export default function SummaryDetailPage() {
 
   const exportToWord = () => {
     if (!summary) return;
+
     const doc = new Document({
       sections: [
         {
           children: [
-            new Paragraph({ children: [new TextRun({ text: 'Résumé', bold: true, size: 32 })] }),
+            new Paragraph({
+              children: [new TextRun({ text: 'Résumé', bold: true, size: 32 })],
+            }),
             new Paragraph(editedContent),
             new Paragraph({ text: 'Tâches :', spacing: { before: 200 } }),
             ...editedTasks.map(task => new Paragraph(`• ${task}`)),
@@ -71,7 +77,10 @@ export default function SummaryDetailPage() {
         },
       ],
     });
-    Packer.toBlob(doc).then(blob => saveAs(blob, `resume-${id}.docx`));
+
+    Packer.toBlob(doc).then(blob => {
+      saveAs(blob, `resume-${id}.docx`);
+    });
   };
 
   const exportToGoogleDocs = async () => {
@@ -80,8 +89,13 @@ export default function SummaryDetailPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ summaryId: id, content: editedContent, tasks: editedTasks }),
     });
+
     const data = await res.json();
-    res.ok && data.url ? window.open(data.url, '_blank') : alert("Erreur lors de l'export Google Docs");
+    if (res.ok && data.url) {
+      window.open(data.url, '_blank');
+    } else {
+      alert("❌ Erreur lors de l'export Google Docs");
+    }
   };
 
   if (loading) return <p className="text-center mt-10">Chargement...</p>;

@@ -7,13 +7,20 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions as any);
+  // ✅ App Router → on appelle getServerSession sans req/res
+  const session = await getServerSession(authOptions);
 
   if (!session?.user?.email) {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
   }
 
-  const { summaryId, content, tasks } = await req.json();
+  const body: {
+    summaryId: string;
+    content: string;
+    tasks: string[];
+  } = await req.json();
+
+  const { summaryId, content, tasks } = body;
 
   if (!summaryId || !content) {
     return NextResponse.json({ error: 'Données manquantes' }, { status: 400 });
@@ -37,7 +44,6 @@ export async function POST(req: NextRequest) {
 
     const docs = google.docs({ version: 'v1', auth });
 
-    // 1. Crée un nouveau Google Doc
     const doc = await docs.documents.create({
       requestBody: {
         title: `Résumé MemoMeet - ${new Date().toLocaleDateString()}`,
@@ -46,9 +52,8 @@ export async function POST(req: NextRequest) {
 
     const docId = doc.data.documentId;
 
-    // 2. Insère le contenu
     await docs.documents.batchUpdate({
-      documentId: docId,
+      documentId: docId!,
       requestBody: {
         requests: [
           {
@@ -63,8 +68,8 @@ export async function POST(req: NextRequest) {
 
     const url = `https://docs.google.com/document/d/${docId}/edit`;
     return NextResponse.json({ url });
-  } catch (err: any) {
-    console.error('❌ Erreur lors de l’export Google Docs:', err);
+  } catch (error) {
+    console.error('❌ Erreur lors de l’export Google Docs:', error);
     return NextResponse.json({ error: 'Erreur Google Docs' }, { status: 500 });
   }
 }
